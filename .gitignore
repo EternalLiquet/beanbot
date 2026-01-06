@@ -1,0 +1,59 @@
+# ======================
+# Python
+# ======================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+.dist/
+.build/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# ======================
+# Python packaging
+# ======================
+pip-wheel-metadata/
+*.whl
+pip-log.txt
+
+# ======================
+# Testing / coverage
+# ======================
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ======================
+# Environment variables
+# ======================
+.env
+.env.*
+!.env.example
+
+# ======================
+# Logs
+# ======================
+*.log
+logs/
+
+# ======================
+# Docker
+# ======================
+docker-compose.override.yml
+*.pid
+
+# ======================
+# OS / Editor
+# ======================
+# Windows
