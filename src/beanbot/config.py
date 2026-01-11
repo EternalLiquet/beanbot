@@ -9,3 +9,4 @@ class Settings(BaseSettings):
     dev_guild_id: int = 0
     prefix: str = "%"
     log_level: str = "INFO"
+    lead_dev_user_id: int = 0
