@@ -47,7 +47,7 @@ class BeanBot(commands.Bot):
 
     async def close(self) -> None:
         try:
-            if self.http and not self.http.closed:
+            if self.http_session and not self.http_session.closed:
                 await self.http.close()
         finally:
             await super().close()
