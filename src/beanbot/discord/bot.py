@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import logging
 import pathlib
+from typing import Optional
 
+import aiohttp
 import discord
 from discord.ext import commands
 
@@ -24,6 +26,9 @@ class BeanBot(commands.Bot):
         self.settings = settings
 
     async def setup_hook(self) -> None:
+        timeout = aiohttp.ClientTimeout(total=15)
+        self.http_session = aiohttp.ClientSession(timeout=timeout)
+
         cogs_dir = pathlib.Path(__file__).resolve().parents[1] / "cogs"
         for file in cogs_dir.glob("*.py"):
             if file.name.startswith("_") or file.name in ("__init__.py"):
@@ -39,6 +44,13 @@ class BeanBot(commands.Bot):
             log.info("Synced app commands to DEV guild: %s", self.settings.dev_guild_id)
         else:
             log.info("DEV_GUILD_ID not set; skipping slash command sync (prefix commands work)")
+
+    async def close(self) -> None:
+        try:
+            if self.http and not self.http.closed:
+                await self.http.close()
+        finally:
+            await super().close()
 
 def create_bot(settings: Settings) -> BeanBot:
     bot = BeanBot(settings)
