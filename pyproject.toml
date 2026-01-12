@@ -7,6 +7,7 @@ dependencies = [
   "python-dotenv>=1.0.1",
   "pydantic>=2.8.0",
   "pydantic-settings>=2.4.0",
+  "aiohttp>=3.9.0"
 ]
 
 [project.optional-dependencies]
@@ -31,5 +32,12 @@ python_version = "3.11"
 strict = true
 warn_unused_configs = true
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+beanbot = ["resources/*.csv", "resources/*.gif", "resources/*.png"]
