@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import logging
+import random
 from dataclasses import dataclass
 from typing import Final, Optional
 
+import io
 import aiohttp
 import discord
 from discord.ext import commands
 
 from beanbot.discord.bot import BeanBot
+from beanbot.services.meme_api import MemeApiClient, MemeApiError
 from beanbot.services.puns import PunRepository
 
 log = logging.getLogger(__name__)
@@ -49,9 +52,9 @@ class MemeCog(commands.Cog, name="Meme Commands"):
         "The entire country of Texas has 5 Jollibees",
     ]
 
-    def __init__(self, bot: BeanBot, cfg: Optional[MemeConfig] = None, pun_repo: PunRepository | None = None) -> None:
+    def __init__(self, bot: BeanBot, config: Optional[MemeConfig] = None, pun_repo: PunRepository | None = None) -> None:
         self.bot = bot
-        self.cfg = cfg or MemeConfig()
+        self.config = config or MemeConfig()
         self.pun_repo = pun_repo or PunRepository()
 
     @commands.hybrid_command(name="succ", description="Astolfo will succ you and call you gay", short="Astolfo will succ an intended target")
@@ -101,18 +104,18 @@ class MemeCog(commands.Cog, name="Meme Commands"):
     @commands.hybrid_command(name="toes", description="You've doomed yourself, Hatate", short="Hatate has doomed themselves to a life of toe liking")
     @commands.bot_has_permissions(send_messages=True, attach_files=True)
     async def toes(self, ctx: commands.Context) -> None:
-        if not self.cfg.toes_url:
+        if not self.config.toes_url:
             await ctx.reply("Toes URL is not configured yet.")
             return
-        await self._send_image_from_url(ctx, self.cfg.toes_url)
+        await self._send_image_from_url(ctx, self.config.toes_url)
 
     @commands.hybrid_command(name="yoshimaru", description="The superior ship", short="The superior ship")
     @commands.bot_has_permissions(send_messages=True, attach_files=True)
     async def yoshimaru(self, ctx: commands.Context) -> None:
-        if not self.cfg.yoshimaru_url:
+        if not self.config.yoshimaru_url:
             await ctx.reply("Yoshimaru URL is not configured yet.")
             return
-        await self._send_image_from_url(ctx, self.cfg.yoshimaru_url)
+        await self._send_image_from_url(ctx, self.config.yoshimaru_url)
 
     @commands.hybrid_command(name="echo", description="Gives the bot braincells", short="I'll say what you want me to say")
     @commands.bot_has_permissions(send_messages=True)
@@ -159,6 +162,49 @@ class MemeCog(commands.Cog, name="Meme Commands"):
     async def pun(self, ctx: commands.Context) -> None:
         await ctx.reply(self.pun_repo.get_random_pun())
 
+    @commands.hybrid_command(name="meme", description="Get a random meme (optionally from a subreddit)")
+    @commands.bot_has_permissions(send_messages=True, embed_links=True)
+    async def meme(self, ctx: commands.Context, subreddit: str | None = None) -> None:
+        if not self.bot.http_session:
+            await ctx.reply("HTTP client is not initialized.")
+            return
+
+        client = MemeApiClient(self.bot.http_session)
+
+        channel_is_nsfw = bool(getattr(ctx.channel, "is_nsfw", lambda: False)())
+
+        attempts = 3 if not channel_is_nsfw else 1
+        last_error: Exception | None = None
+
+        for _ in range(attempts):
+            try:
+                meme = await client.get_meme(subreddit=subreddit.strip() if subreddit else None)
+            except MemeApiError as e:
+                last_error = e
+                break
+
+            if meme.nsfw and not channel_is_nsfw:
+                last_error = MemeApiError("Got NSFW meme in non-NSFW channel; retrying.")
+                continue
+
+            embed = discord.Embed(
+                title=meme.title,
+                description=f"/r/{meme.subreddit}",
+                url=meme.post_link,
+            )
+            embed.set_image(url=meme.url)
+            if meme.author:
+                embed.set_footer(text=f"u/{meme.author} • 👍 {meme.ups}")
+
+            await ctx.reply(embed=embed)
+            return
+
+        log.warning("Meme command failed: subreddit=%s error=%s", subreddit, last_error)
+        if last_error:
+            await ctx.reply(f"Couldn’t fetch a meme: {last_error}")
+        else:
+            await ctx.reply("Couldn’t fetch a meme right now.")
+
 
     async def _send_image_from_url(self, ctx: commands.Context, url: str) -> None:
         if not self.bot.http_session:
@@ -171,7 +217,6 @@ class MemeCog(commands.Cog, name="Meme Commands"):
                 content_type = (resp.headers.get("Content-Type") or "").lower()
                 data = await resp.read()
 
-            # Best-effort file extension
             ext = "png"
             if "jpeg" in content_type or "jpg" in content_type:
                 ext = "jpg"
@@ -180,7 +225,7 @@ class MemeCog(commands.Cog, name="Meme Commands"):
             elif "webp" in content_type:
                 ext = "webp"
 
-            file = discord.File(fp=discord.BytesIO(data), filename=f"image.{ext}")
+            file = discord.File(fp=io.BytesIO(data), filename=f"image.{ext}")
             await ctx.reply(file=file)
 
         except aiohttp.ClientResponseError as e:
@@ -195,4 +240,8 @@ class MemeCog(commands.Cog, name="Meme Commands"):
 
 
 async def setup(bot: commands.Bot) -> None:
-    await bot.add_cog(MemeCog(bot, pun_repo=PunRepository()))
+    config = MemeConfig(
+        toes_url = bot.settings.toes_url,
+        yoshimaru_url = bot.settings.yoshimaru_url
+    )
+    await bot.add_cog(MemeCog(bot, config=config, pun_repo=PunRepository()))

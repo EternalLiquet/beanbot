@@ -10,3 +10,5 @@ class Settings(BaseSettings):
     prefix: str = "%"
     log_level: str = "INFO"
     lead_dev_user_id: int = 0
+    toes_url: str | None
+    yoshimaru_url: str | None
