@@ -33,8 +33,9 @@ def _get_random_gordon_gif() -> Optional[discord.File]:
         return None
 
     chosen = random.choice(gordon_gifs)
-
-    return discord.File(chosen.open("rb"), filename=chosen.name)
+    data = chosen.read_bytes()
+    buffer = io.BytesIO(data)
+    return discord.File(buffer, filename=chosen.name)
 
 
 @dataclass(frozen=True)
