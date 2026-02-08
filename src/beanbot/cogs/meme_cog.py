@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import random
 from dataclasses import dataclass
+from importlib import resources
 from typing import Final, Optional
 
 import io
@@ -21,6 +22,21 @@ def _is_question(text: str) -> bool:
 
 def _safe_allowed_mentions() -> discord.AllowedMentions:
     return discord.AllowedMentions(everyone=False, users=True, roles=False, replied_user=False)
+
+
+def _get_random_gordon_gif() -> Optional[discord.File]:
+    gordon_gifs = [
+        entry for entry in resources.files("beanbot.resources").iterdir()
+        if entry.is_file() and entry.name.startswith("gordon") and entry.suffix.lower() == ".gif"
+    ]
+    if not gordon_gifs:
+        return None
+
+    chosen = random.choice(gordon_gifs)
+    data = chosen.read_bytes()
+    buffer = io.BytesIO(data)
+    return discord.File(buffer, filename=chosen.name)
+
 
 @dataclass(frozen=True)
 class MemeConfig:
@@ -129,10 +145,21 @@ class MemeCog(commands.Cog, name="Meme Commands"):
         await ctx.send(text, allowed_mentions=_safe_allowed_mentions())
 
     @commands.hybrid_command(name="8ball", description="Let me predict your future.. for a price")
-    @commands.bot_has_permissions(send_messages=True)
+    @commands.bot_has_permissions(send_messages=True, attach_files=True)
     async def eight_ball(self, ctx: commands.Context, *, question: str) -> None:
         if not _is_question(question):
-            await ctx.reply(f"> {question}\nThat is not a question.")
+            gordon_gif = _get_random_gordon_gif()
+            if gordon_gif is not None:
+                await ctx.reply(
+                    f"> {question}\nThat is not a question.",
+                    allowed_mentions=_safe_allowed_mentions(),
+                    file=gordon_gif,
+                )
+            else:
+                await ctx.reply(
+                    f"> {question}\nThat is not a question.",
+                    allowed_mentions=_safe_allowed_mentions(),
+                )
             return
 
         answer = random.choice(self.EIGHT_BALL_RESPONSES)
