@@ -24,7 +24,7 @@ def _safe_allowed_mentions() -> discord.AllowedMentions:
     return discord.AllowedMentions(everyone=False, users=True, roles=False, replied_user=False)
 
 
-def _get_random_gordon_gif() -> discord.File | None:
+def _get_random_gordon_gif() -> Optional[discord.File]:
     gordon_gifs = [
         entry for entry in resources.files("beanbot.resources").iterdir()
         if entry.is_file() and entry.name.startswith("gordon") and entry.suffix.lower() == ".gif"
@@ -32,7 +32,9 @@ def _get_random_gordon_gif() -> discord.File | None:
     if not gordon_gifs:
         return None
 
-    return discord.File(str(random.choice(gordon_gifs)))
+    chosen = random.choice(gordon_gifs)
+
+    return discord.File(chosen.open("rb"), filename=chosen.name)
 
 
 @dataclass(frozen=True)
