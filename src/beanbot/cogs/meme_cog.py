@@ -100,9 +100,9 @@ class MemeCog(commands.Cog, name="Meme Commands"):
     async def two_am(self, ctx: commands.Context) -> None:
         await ctx.reply("<:mcdonalds:661337575704887337>")
 
-    @commands.hybrid_command(name="fancy_ocho_ocho", description="Everyone that went to the Music Box is banned", short="The forbidden music box song")
+    @commands.hybrid_command(name="ocho_ocho", description="Everyone that went to the Music Box is banned", short="The forbidden music box song")
     @commands.bot_has_permissions(send_messages=True)
-    async def fancy_ocho_ocho(self, ctx: commands.Context) -> None:
+    async def ocho_ocho(self, ctx: commands.Context) -> None:
         pages = [
             "One plus one, equals two.",
             "Two plus two, equals four.",
