@@ -149,13 +149,17 @@ class MemeCog(commands.Cog, name="Meme Commands"):
     async def eight_ball(self, ctx: commands.Context, *, question: str) -> None:
         if not _is_question(question):
             gordon_gif = _get_random_gordon_gif()
-            reply_args = { "allowed_mentions": _safe_allowed_mentions() }
             if gordon_gif is not None:
-                reply_args["file"] = gordon_gif
-            await ctx.reply(
-                f"> {question}\nThat is not a question.",
-                **reply_args
-            )
+                await ctx.reply(
+                    f"> {question}\nThat is not a question.",
+                    allowed_mentions=_safe_allowed_mentions(),
+                    file=gordon_gif,
+                )
+            else:
+                await ctx.reply(
+                    f"> {question}\nThat is not a question.",
+                    allowed_mentions=_safe_allowed_mentions(),
+                )
             return
 
         answer = random.choice(self.EIGHT_BALL_RESPONSES)
