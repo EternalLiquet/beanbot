@@ -21,7 +21,7 @@ class HelpCog(commands.Cog, name="Help Commands"):
             for cmd in cog.get_commands():
                 if cmd.hidden:
                     continue
-                items.append(f"**{cmd.qualified_name}** — {cmd.short_doc or 'No description'}")
+                items.append(f"**{cmd.qualified_name}** — {cmd.description or 'No description'}")
 
             if items:
                 embed.add_field(name=cog_name, value="\n".join(items), inline=False)
