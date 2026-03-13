@@ -4,6 +4,7 @@ import logging
 import random
 from dataclasses import dataclass
 from importlib import resources
+import re as regular_expression
 from typing import Final, Optional
 
 import io
@@ -37,6 +38,13 @@ def _get_random_gordon_gif() -> Optional[discord.File]:
     buffer = io.BytesIO(data)
     return discord.File(buffer, filename=chosen.name)
 
+def _uwuify(text: str) -> str:
+    table = str.maketrans({"r": "w", "l": "w", "R": "W", "L": "W"})
+    out = text.translate(table)
+    if out:
+        out = regular_expression.sub(r"n([aeiou])", r"ny\1", out, flags=regular_expression.IGNORECASE)
+    suffix = random.choice(["", " uwu", " owo", " >w<", " nya~"])
+    return f"{out}{suffix}"
 
 @dataclass(frozen=True)
 class MemeConfig:
@@ -195,6 +203,10 @@ class MemeCog(commands.Cog, name="Meme Commands"):
         if not self.bot.http_session:
             await ctx.reply("HTTP client is not initialized.")
             return
+    
+    @commands.hybrid_command(name="uwu", description="Uwuify some text")
+    async def uwu(self, ctx: commands.Context, *, text: str) -> None:
+        await ctx.reply(_uwuify(text), allowed_mentions=_safe_allowed_mentions())
 
         client = MemeApiClient(self.bot.http_session)
 
