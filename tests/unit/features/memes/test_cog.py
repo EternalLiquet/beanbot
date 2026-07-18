@@ -4,8 +4,8 @@ import asyncio
 from types import SimpleNamespace
 from typing import Any
 
-from beanbot.cogs import meme_cog
-from beanbot.services.meme_api import Meme
+from beanbot.features.memes import cog as meme_cog
+from beanbot.features.memes.api import Meme
 
 
 class FakeContext:

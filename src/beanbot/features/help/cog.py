@@ -10,7 +10,6 @@ class HelpCog(commands.Cog, name="Help Commands"):
 
     @commands.hybrid_command(name="help", description="Lists all available commands")
     async def help(self, ctx: commands.Context) -> None:
-        # Minimal enterprise-style help; we can enrich later
         embed = discord.Embed(
             title="BeanBot Commands",
             description="Use `%<command>` or `/command`.",

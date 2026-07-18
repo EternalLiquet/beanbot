@@ -1,6 +1,11 @@
-# beanbot
+# Beanbot
 
-Code for a bot written for the Midwest Illinois Livers and Friends server, re-written in Python and planning to host on a Raspberry Pi 5. May move to an arch linux box in the future. Will run Docker. I have goals of writing this in a very enterprise Python app way. I also plan on somehow microservicing a Discord bot, I'm sure it's possible. Or I might not. Is the speed of a quick command like %help worth sacrificing to make it reusable across every bot? Or maybe I make simple commands like that, a library instead. Who knows!
+A Discord bot for the Midwest Illinois Livers and Friends server, migrated from the original .NET
+application to Python. It is organized as a feature-oriented modular monolith: clear domain
+boundaries and testable services, without unnecessary distributed-system overhead.
+
+See [the architecture guide](docs/architecture.md) for package ownership and dependency rules, and
+[the migration status](docs/migration-status.md) for the remaining .NET parity work.
 
 ## Setup
 

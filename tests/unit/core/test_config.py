@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pytest import MonkeyPatch
 
-from beanbot.config import Settings
+from beanbot.core.config import Settings
 
 
 def test_settings_accept_legacy_csharp_environment_names(monkeypatch: MonkeyPatch) -> None:

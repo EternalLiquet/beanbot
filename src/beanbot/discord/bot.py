@@ -1,24 +1,18 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Final
+from typing import Any
 
 import aiohttp
 import discord
 from discord.ext import commands
 from pymongo import AsyncMongoClient
 
-from beanbot.config import Settings
+from beanbot.core.config import Settings
+from beanbot.features.registry import FEATURE_EXTENSIONS
 
 log = logging.getLogger(__name__)
 
-EXTENSIONS: Final[tuple[str, ...]] = (
-    "beanbot.cogs.help",
-    "beanbot.cogs.info_cog",
-    "beanbot.cogs.meme_cog",
-    "beanbot.cogs.ping",
-    "beanbot.features.role_menus.cog",
-)
 
 class BeanBot(commands.Bot):
     def __init__(self, settings: Settings) -> None:
@@ -43,7 +37,7 @@ class BeanBot(commands.Bot):
             await self.mongo_client.admin.command("ping")
             log.info("Connected to MongoDB database: %s", self.settings.mongo_database_name)
 
-        for ext in EXTENSIONS:
+        for ext in FEATURE_EXTENSIONS:
             await self.load_extension(ext)
             log.info("Loaded extension: %s", ext)
 
@@ -63,6 +57,7 @@ class BeanBot(commands.Bot):
                 await self.mongo_client.close()
         finally:
             await super().close()
+
 
 def create_bot(settings: Settings) -> BeanBot:
     bot = BeanBot(settings)

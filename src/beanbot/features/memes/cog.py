@@ -14,13 +14,15 @@ import discord
 from discord.ext import commands
 
 from beanbot.discord.bot import BeanBot
-from beanbot.services.meme_api import MemeApiClient, MemeApiError
-from beanbot.services.puns import PunRepository
+from beanbot.features.memes.api import MemeApiClient, MemeApiError
+from beanbot.features.memes.puns import PunRepository
 
 log = logging.getLogger(__name__)
 
+
 def _is_question(text: str) -> bool:
     return text.rstrip().endswith("?")
+
 
 def _safe_allowed_mentions() -> discord.AllowedMentions:
     return discord.AllowedMentions(everyone=False, users=True, roles=False, replied_user=False)
@@ -28,8 +30,11 @@ def _safe_allowed_mentions() -> discord.AllowedMentions:
 
 def _get_random_gordon_gif() -> discord.File | None:
     gordon_gifs = [
-        entry for entry in resources.files("beanbot.resources").iterdir()
-        if entry.is_file() and entry.name.startswith("gordon") and entry.name.lower().endswith(".gif")
+        entry
+        for entry in resources.files("beanbot.resources").iterdir()
+        if entry.is_file()
+        and entry.name.startswith("gordon")
+        and entry.name.lower().endswith(".gif")
     ]
     if not gordon_gifs:
         return None
@@ -39,13 +44,17 @@ def _get_random_gordon_gif() -> discord.File | None:
     buffer = io.BytesIO(data)
     return discord.File(buffer, filename=chosen.name)
 
+
 def _uwuify(text: str) -> str:
     table = str.maketrans({"r": "w", "l": "w", "R": "W", "L": "W"})
     out = text.translate(table)
     if out:
-        out = regular_expression.sub(r"n([aeiou])", r"ny\1", out, flags=regular_expression.IGNORECASE)
+        out = regular_expression.sub(
+            r"n([aeiou])", r"ny\1", out, flags=regular_expression.IGNORECASE
+        )
     suffix = random.choice(["", " uwu", " owo", " >w<", " nya~"])
     return f"{out}{suffix}"
+
 
 @dataclass(frozen=True)
 class MemeConfig:
@@ -54,7 +63,6 @@ class MemeConfig:
 
 
 class MemeCog(commands.Cog, name="Meme Commands"):
-
     EIGHT_BALL_RESPONSES: Final[list[str]] = [
         "Hell yeah brother",
         "Yeehaw",
@@ -65,7 +73,7 @@ class MemeCog(commands.Cog, name="Meme Commands"):
         "It is unclear, let me succ you and try asking again",
         "*succ succ succ* lol you're gay",
     ]
-    
+
     TEXAS_FACTS: Final[list[str]] = [
         "The tale of the Alamo is retold through the stars",
         "The King Ranch in Texas is bigger than the entire state of California",
@@ -77,12 +85,18 @@ class MemeCog(commands.Cog, name="Meme Commands"):
         "The entire country of Texas has 5 Jollibees",
     ]
 
-    def __init__(self, bot: BeanBot, config: MemeConfig | None = None, pun_repo: PunRepository | None = None) -> None:
+    def __init__(
+        self, bot: BeanBot, config: MemeConfig | None = None, pun_repo: PunRepository | None = None
+    ) -> None:
         self.bot = bot
         self.config = config or MemeConfig()
         self.pun_repo = pun_repo or PunRepository()
 
-    @commands.hybrid_command(name="succ", description="Astolfo will succ you and call you gay", short="Astolfo will succ an intended target")
+    @commands.hybrid_command(
+        name="succ",
+        description="Astolfo will succ you and call you gay",
+        short="Astolfo will succ an intended target",
+    )
     @commands.bot_has_permissions(send_messages=True)
     @commands.guild_only()
     async def succ(self, ctx: commands.Context, *, target: str | None = None) -> None:
@@ -91,26 +105,32 @@ class MemeCog(commands.Cog, name="Meme Commands"):
 
         if target_norm.lower().startswith("succ "):
             target_norm = target_norm[5:].strip()
-        
+
         me = ctx.me
-        if me is not None and (
-            "bean bot" in target_norm.lower() or str(me.id) in target_norm
-        ):
+        if me is not None and ("bean bot" in target_norm.lower() or str(me.id) in target_norm):
             target_norm = author_mention
-        
+
         mention = target_norm if target_norm else author_mention
 
         await ctx.reply(
             f"*succ succ succ* lol you're gay {mention}",
-            allowed_mentions=_safe_allowed_mentions()
+            allowed_mentions=_safe_allowed_mentions(),
         )
 
-    @commands.hybrid_command(name="2am", description="There's only one thing to do at 2 AM...", short="McDonald's at 2 AM")
+    @commands.hybrid_command(
+        name="2am",
+        description="There's only one thing to do at 2 AM...",
+        short="McDonald's at 2 AM",
+    )
     @commands.bot_has_permissions(send_messages=True)
     async def two_am(self, ctx: commands.Context) -> None:
         await ctx.reply("<:mcdonalds:661337575704887337>")
 
-    @commands.hybrid_command(name="ocho_ocho", description="Everyone that went to the Music Box is banned", short="The forbidden music box song")
+    @commands.hybrid_command(
+        name="ocho_ocho",
+        description="Everyone that went to the Music Box is banned",
+        short="The forbidden music box song",
+    )
     @commands.bot_has_permissions(send_messages=True)
     async def ocho_ocho(self, ctx: commands.Context) -> None:
         pages = [
@@ -122,12 +142,20 @@ class MemeCog(commands.Cog, name="Meme Commands"):
         ]
         await ctx.reply("\n".join(pages))
 
-    @commands.hybrid_command(name="420", description="Astolfour-twenty blaze it", short="It's 4:20 somewhere in the world...")
+    @commands.hybrid_command(
+        name="420",
+        description="Astolfour-twenty blaze it",
+        short="It's 4:20 somewhere in the world...",
+    )
     @commands.bot_has_permissions(send_messages=True)
     async def four_twenty(self, ctx: commands.Context) -> None:
         await ctx.reply("<:420stolfoit:675553715759087618>")
 
-    @commands.hybrid_command(name="toes", description="You've doomed yourself, Hatate", short="Hatate has doomed themselves to a life of toe liking")
+    @commands.hybrid_command(
+        name="toes",
+        description="You've doomed yourself, Hatate",
+        short="Hatate has doomed themselves to a life of toe liking",
+    )
     @commands.bot_has_permissions(send_messages=True, attach_files=True)
     async def toes(self, ctx: commands.Context) -> None:
         if not self.config.toes_url:
@@ -135,7 +163,9 @@ class MemeCog(commands.Cog, name="Meme Commands"):
             return
         await self._send_image_from_url(ctx, self.config.toes_url)
 
-    @commands.hybrid_command(name="yoshimaru", description="The superior ship", short="The superior ship")
+    @commands.hybrid_command(
+        name="yoshimaru", description="The superior ship", short="The superior ship"
+    )
     @commands.bot_has_permissions(send_messages=True, attach_files=True)
     async def yoshimaru(self, ctx: commands.Context) -> None:
         if not self.config.yoshimaru_url:
@@ -143,7 +173,11 @@ class MemeCog(commands.Cog, name="Meme Commands"):
             return
         await self._send_image_from_url(ctx, self.config.yoshimaru_url)
 
-    @commands.hybrid_command(name="echo", description="Gives the bot braincells", short="I'll say what you want me to say")
+    @commands.hybrid_command(
+        name="echo",
+        description="Gives the bot braincells",
+        short="I'll say what you want me to say",
+    )
     @commands.bot_has_permissions(send_messages=True)
     async def echo(self, ctx: commands.Context, *, text: str) -> None:
         if ctx.message:
@@ -182,7 +216,9 @@ class MemeCog(commands.Cog, name="Meme Commands"):
     async def texas_national_bird(self, ctx: commands.Context) -> None:
         await ctx.reply("The Texas Offical National Bird is the AR-15")
 
-    @commands.hybrid_command(name="texasnationalflower", description="Texas' official national flower")
+    @commands.hybrid_command(
+        name="texasnationalflower", description="Texas' official national flower"
+    )
     @commands.bot_has_permissions(send_messages=True)
     async def texas_national_flower(self, ctx: commands.Context) -> None:
         await ctx.reply("The Texas Official National Flower is the Jimmy Dean breakfast taco")
@@ -197,7 +233,9 @@ class MemeCog(commands.Cog, name="Meme Commands"):
     async def pun(self, ctx: commands.Context) -> None:
         await ctx.reply(self.pun_repo.get_random_pun())
 
-    @commands.hybrid_command(name="meme", description="Get a random meme (optionally from a subreddit)")
+    @commands.hybrid_command(
+        name="meme", description="Get a random meme (optionally from a subreddit)"
+    )
     @commands.bot_has_permissions(send_messages=True, embed_links=True)
     async def meme(self, ctx: commands.Context, subreddit: str | None = None) -> None:
         if not self.bot.http_session:
@@ -244,7 +282,6 @@ class MemeCog(commands.Cog, name="Meme Commands"):
     async def uwu(self, ctx: commands.Context, *, text: str) -> None:
         await ctx.reply(_uwuify(text), allowed_mentions=_safe_allowed_mentions())
 
-
     async def _send_image_from_url(self, ctx: commands.Context, url: str) -> None:
         if not self.bot.http_session:
             await ctx.reply("HTTP client is not initialized.")
@@ -280,7 +317,7 @@ class MemeCog(commands.Cog, name="Meme Commands"):
 
 async def setup(bot: BeanBot) -> None:
     config = MemeConfig(
-        toes_url = bot.settings.toes_url,
-        yoshimaru_url = bot.settings.yoshimaru_url
+        toes_url=bot.settings.toes_url,
+        yoshimaru_url=bot.settings.yoshimaru_url,
     )
     await bot.add_cog(MemeCog(bot, config=config, pun_repo=PunRepository()))

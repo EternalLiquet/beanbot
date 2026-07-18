@@ -167,8 +167,7 @@ def _mongo_uri(cli_value: str | None) -> str:
     )
     if not value:
         raise ValueError(
-            "Set mongo_connection_string or BEANBOT_MONGO_CONNECTION_STRING, "
-            "or pass --mongo-uri"
+            "Set mongo_connection_string or BEANBOT_MONGO_CONNECTION_STRING, or pass --mongo-uri"
         )
     return value
 

@@ -58,9 +58,7 @@ class FakeCollection:
         upsert: bool,
     ) -> None:
         self.documents = [
-            existing
-            for existing in self.documents
-            if existing["message_id"] != query["message_id"]
+            existing for existing in self.documents if existing["message_id"] != query["message_id"]
         ]
         self.documents.append(document)
 
@@ -153,7 +151,9 @@ def test_toggle_member_roles_adds_missing_and_removes_existing() -> None:
 
 def test_mongo_repository_supports_select_and_migrated_reaction_menus() -> None:
     collection = FakeCollection()
-    repository = RoleMenuRepository(cast(Any, FakeClient(collection)), "BeanBotPythonDB", "roleMenus")
+    repository = RoleMenuRepository(
+        cast(Any, FakeClient(collection)), "BeanBotPythonDB", "roleMenus"
+    )
     select_menu = RoleMenu(
         guild_id=1,
         channel_id=2,
@@ -166,9 +166,7 @@ def test_mongo_repository_supports_select_and_migrated_reaction_menus() -> None:
         channel_id=2,
         message_id=4,
         label="Legacy",
-        roles=(
-            StoredRole(role_id=11, role_name="Role 11", position=0, emoji_key="custom:99"),
-        ),
+        roles=(StoredRole(role_id=11, role_name="Role 11", position=0, emoji_key="custom:99"),),
         menu_type="reaction",
     )
 

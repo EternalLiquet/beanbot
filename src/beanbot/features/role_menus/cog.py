@@ -39,9 +39,7 @@ class RoleMenusCog(commands.Cog, name="Administrative Commands"):
             else None
         )
         self.legacy_reaction_service = (
-            LegacyReactionRoleService(bot, self.repository)
-            if self.repository is not None
-            else None
+            LegacyReactionRoleService(bot, self.repository) if self.repository is not None else None
         )
 
     async def cog_load(self) -> None:

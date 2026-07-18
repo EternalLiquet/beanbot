@@ -36,7 +36,13 @@ strict = true
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-module = ["beanbot.cogs.*", "beanbot.features.role_menus.cog"]
+module = [
+  "beanbot.features.help.cog",
+  "beanbot.features.info.cog",
+  "beanbot.features.memes.cog",
+  "beanbot.features.ping.cog",
+  "beanbot.features.role_menus.cog",
+]
 # discord.py's command decorators erase callback parameter types under strict mypy.
 disable_error_code = ["arg-type", "type-arg"]
 

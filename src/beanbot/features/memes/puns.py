@@ -25,7 +25,6 @@ class PunRepository:
     def _load(self) -> list[Pun]:
         paths = resources.files(self._RESOURCE_PACKAGE).joinpath(self._RESOURCE_NAME)
 
-        # Try encodings in a safe order
         encodings = ["utf-8", "utf-8-sig", "latin-1"]
 
         last_error: Exception | None = None
@@ -53,9 +52,9 @@ class PunRepository:
 
         log.error("All CSV decoding attempts failed")
         if last_error:
-            log.exception(last_error)
+            log.error("Last CSV decoding error: %s", last_error)
         return []
-    
+
     def get_random_pun(self) -> str:
         if self._puns is None:
             self._puns = self._load()
