@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from discord.ext import commands
+
 from beanbot.discord.bot import BeanBot
+
 
 class InfoCog(commands.Cog, name="Bot Information"):
     def __init__(self, bot: BeanBot) -> None:
@@ -12,5 +14,5 @@ class InfoCog(commands.Cog, name="Bot Information"):
         settings = self.bot.settings
         await ctx.reply(f"<@{settings.lead_dev_user_id}> is my lead developer")
 
-async def setup(bot: commands.Bot) -> None:
+async def setup(bot: BeanBot) -> None:
     await bot.add_cog(InfoCog(bot))

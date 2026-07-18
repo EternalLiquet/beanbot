@@ -1,16 +1,24 @@
 from __future__ import annotations
 
 import logging
-import pathlib
-from typing import Optional
+from typing import Any, Final
 
 import aiohttp
 import discord
 from discord.ext import commands
+from pymongo import AsyncMongoClient
 
 from beanbot.config import Settings
 
 log = logging.getLogger(__name__)
+
+EXTENSIONS: Final[tuple[str, ...]] = (
+    "beanbot.cogs.help",
+    "beanbot.cogs.info_cog",
+    "beanbot.cogs.meme_cog",
+    "beanbot.cogs.ping",
+    "beanbot.features.role_menus.cog",
+)
 
 class BeanBot(commands.Bot):
     def __init__(self, settings: Settings) -> None:
@@ -24,16 +32,18 @@ class BeanBot(commands.Bot):
         )
 
         self.settings = settings
+        self.http_session: aiohttp.ClientSession | None = None
+        self.mongo_client: AsyncMongoClient[dict[str, Any]] | None = None
 
     async def setup_hook(self) -> None:
         timeout = aiohttp.ClientTimeout(total=15)
         self.http_session = aiohttp.ClientSession(timeout=timeout)
+        if self.settings.mongo_connection_string:
+            self.mongo_client = AsyncMongoClient(self.settings.mongo_connection_string)
+            await self.mongo_client.admin.command("ping")
+            log.info("Connected to MongoDB database: %s", self.settings.mongo_database_name)
 
-        cogs_dir = pathlib.Path(__file__).resolve().parents[1] / "cogs"
-        for file in cogs_dir.glob("*.py"):
-            if file.name.startswith("_") or file.name in ("__init__.py"):
-                continue
-            ext = f"beanbot.cogs.{file.stem}"
+        for ext in EXTENSIONS:
             await self.load_extension(ext)
             log.info("Loaded extension: %s", ext)
 
@@ -48,7 +58,9 @@ class BeanBot(commands.Bot):
     async def close(self) -> None:
         try:
             if self.http_session and not self.http_session.closed:
-                await self.http.close()
+                await self.http_session.close()
+            if self.mongo_client is not None:
+                await self.mongo_client.close()
         finally:
             await super().close()
 

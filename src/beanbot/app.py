@@ -9,7 +9,7 @@ from beanbot.logging_config import configure_logging
 log = logging.getLogger(__name__)
 
 async def run() -> None:
-    settings = Settings()
+    settings = Settings()  # type: ignore[call-arg]  # Values load from the environment.
     configure_logging(settings.log_level)
 
     bot = create_bot(settings)

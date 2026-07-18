@@ -32,7 +32,7 @@ class PunRepository:
 
         for encoding in encodings:
             try:
-                with paths.open("r", encoding=encoding, newline="") as f:
+                with paths.open("r", encoding=encoding) as f:
                     reader = csv.DictReader(f)
                     puns: list[Pun] = []
 

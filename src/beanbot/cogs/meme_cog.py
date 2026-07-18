@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import io
 import logging
 import random
+import re as regular_expression
+from contextlib import suppress
 from dataclasses import dataclass
 from importlib import resources
-import re as regular_expression
-from typing import Final, Optional
+from typing import Final
 
-import io
 import aiohttp
 import discord
 from discord.ext import commands
@@ -25,10 +26,10 @@ def _safe_allowed_mentions() -> discord.AllowedMentions:
     return discord.AllowedMentions(everyone=False, users=True, roles=False, replied_user=False)
 
 
-def _get_random_gordon_gif() -> Optional[discord.File]:
+def _get_random_gordon_gif() -> discord.File | None:
     gordon_gifs = [
         entry for entry in resources.files("beanbot.resources").iterdir()
-        if entry.is_file() and entry.name.startswith("gordon") and entry.suffix.lower() == ".gif"
+        if entry.is_file() and entry.name.startswith("gordon") and entry.name.lower().endswith(".gif")
     ]
     if not gordon_gifs:
         return None
@@ -48,8 +49,8 @@ def _uwuify(text: str) -> str:
 
 @dataclass(frozen=True)
 class MemeConfig:
-    toes_url: Optional[str] = None
-    yoshimaru_url: Optional[str] = None
+    toes_url: str | None = None
+    yoshimaru_url: str | None = None
 
 
 class MemeCog(commands.Cog, name="Meme Commands"):
@@ -76,7 +77,7 @@ class MemeCog(commands.Cog, name="Meme Commands"):
         "The entire country of Texas has 5 Jollibees",
     ]
 
-    def __init__(self, bot: BeanBot, config: Optional[MemeConfig] = None, pun_repo: PunRepository | None = None) -> None:
+    def __init__(self, bot: BeanBot, config: MemeConfig | None = None, pun_repo: PunRepository | None = None) -> None:
         self.bot = bot
         self.config = config or MemeConfig()
         self.pun_repo = pun_repo or PunRepository()
@@ -92,9 +93,10 @@ class MemeCog(commands.Cog, name="Meme Commands"):
             target_norm = target_norm[5:].strip()
         
         me = ctx.me
-        if me is not None:
-            if "bean bot" in target_norm.lower() or str(me.id) in target_norm:
-                target_norm = author_mention
+        if me is not None and (
+            "bean bot" in target_norm.lower() or str(me.id) in target_norm
+        ):
+            target_norm = author_mention
         
         mention = target_norm if target_norm else author_mention
 
@@ -145,10 +147,8 @@ class MemeCog(commands.Cog, name="Meme Commands"):
     @commands.bot_has_permissions(send_messages=True)
     async def echo(self, ctx: commands.Context, *, text: str) -> None:
         if ctx.message:
-            try:
+            with suppress(discord.Forbidden, discord.HTTPException):
                 await ctx.message.delete()
-            except (discord.Forbidden, discord.HTTPException):
-                pass
 
         await ctx.send(text, allowed_mentions=_safe_allowed_mentions())
 
@@ -203,10 +203,6 @@ class MemeCog(commands.Cog, name="Meme Commands"):
         if not self.bot.http_session:
             await ctx.reply("HTTP client is not initialized.")
             return
-    
-    @commands.hybrid_command(name="uwu", description="Uwuify some text")
-    async def uwu(self, ctx: commands.Context, *, text: str) -> None:
-        await ctx.reply(_uwuify(text), allowed_mentions=_safe_allowed_mentions())
 
         client = MemeApiClient(self.bot.http_session)
 
@@ -244,6 +240,10 @@ class MemeCog(commands.Cog, name="Meme Commands"):
         else:
             await ctx.reply("Couldn’t fetch a meme right now.")
 
+    @commands.hybrid_command(name="uwu", description="Uwuify some text")
+    async def uwu(self, ctx: commands.Context, *, text: str) -> None:
+        await ctx.reply(_uwuify(text), allowed_mentions=_safe_allowed_mentions())
+
 
     async def _send_image_from_url(self, ctx: commands.Context, url: str) -> None:
         if not self.bot.http_session:
@@ -278,7 +278,7 @@ class MemeCog(commands.Cog, name="Meme Commands"):
             await ctx.reply("Failed to fetch that image.")
 
 
-async def setup(bot: commands.Bot) -> None:
+async def setup(bot: BeanBot) -> None:
     config = MemeConfig(
         toes_url = bot.settings.toes_url,
         yoshimaru_url = bot.settings.yoshimaru_url

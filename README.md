@@ -30,7 +30,7 @@ This project requires Python 3.11 or newer.
    pip install -e .[dev]
    ```
 
-5. Create a `.env` file in the project root with the bot configuration:
+5. Copy `.env.example` to `.env` and fill in the bot configuration:
 
    ```env
    discord_token=your_discord_bot_token
@@ -40,9 +40,47 @@ This project requires Python 3.11 or newer.
    lead_dev_user_id=0
    toes_url=
    yoshimaru_url=
+   mongo_connection_string=mongodb://localhost:27017
+   mongo_database_name=BeanBotPythonDB
+   mongo_role_menu_collection=roleMenus
    ```
 
 Only `discord_token` is required; the other values fall back to defaults or may be left empty where applicable.
+
+The Python bot stores self-role menus in `BeanBotPythonDB` by default, leaving the C# bot's legacy
+`BeanBotDB` untouched. An administrator can run `%rolesetting` and choose up to 20 self-assignable
+roles at once with Discord's role picker. The bot needs the Manage Roles and Embed Links
+permissions, and its highest role must be above every role it assigns. Published role menus are
+persistent across bot restarts.
+
+### Migrate legacy reaction roles
+
+The C# bot stores reaction roles in `BeanBotDB.roleSettings`. The migration command copies those
+documents into `BeanBotPythonDB.roleMenus` and never writes to or deletes from the legacy database.
+Migrated reaction messages keep working while newly created menus use Discord's multi-role picker.
+
+Preview and validate the migration first:
+
+```powershell
+python -m beanbot.migrations.migrate_role_settings
+```
+
+If the MongoDB URI still lives in the deprecated bot's dotenv file, pass it without copying or
+printing the credential:
+
+```powershell
+python -m beanbot.migrations.migrate_role_settings --env-file ../BeanBot-DEPRACATED/.env
+```
+
+Apply the copy only after the dry run reports no invalid documents or conflicts:
+
+```powershell
+python -m beanbot.migrations.migrate_role_settings --apply
+```
+
+The migration is idempotent: rerunning it skips documents already copied from the same legacy ID.
+See [docs/role-menus.md](docs/role-menus.md) for the schema, architecture, verification, and
+rollback procedure.
 
 ## Run
 
