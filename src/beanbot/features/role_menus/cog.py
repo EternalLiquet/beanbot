@@ -218,10 +218,30 @@ class RoleMenusCog(commands.Cog, name="Administrative Commands"):
             inline=False,
         )
 
-        role_message = await channel.send(
-            embed=embed,
-            allowed_mentions=_safe_allowed_mentions(),
-        )
+        try:
+            role_message = await channel.send(
+                embed=embed,
+                allowed_mentions=_safe_allowed_mentions(),
+            )
+        except discord.HTTPException:
+            log.exception(
+                "Could not publish self-role menu message: guild=%s channel=%s",
+                guild.id,
+                channel.id,
+            )
+            try:
+                await interaction.followup.send(
+                    "I could not publish the self-role menu in this channel.",
+                    ephemeral=True,
+                )
+            except discord.HTTPException:
+                log.exception(
+                    "Could not report self-role menu publication failure: guild=%s channel=%s",
+                    guild.id,
+                    channel.id,
+                )
+            return False
+
         menu = RoleMenu(
             guild_id=guild.id,
             channel_id=channel.id,

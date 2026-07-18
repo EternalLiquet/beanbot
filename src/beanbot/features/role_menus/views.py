@@ -33,7 +33,9 @@ def message_has_current_role_select(message: discord.Message, menu: RoleMenu) ->
                 (option.label, option.value) for option in getattr(component, "options", ())
             )
             return (
-                actual_options == expected_options
+                getattr(component, "type", None) is discord.ComponentType.string_select
+                and getattr(component, "disabled", None) is False
+                and actual_options == expected_options
                 and getattr(component, "min_values", None) == 1
                 and getattr(component, "max_values", None) == len(expected_options)
             )
