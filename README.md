@@ -1,6 +1,11 @@
-# beanbot
+# Beanbot
 
-Code for a bot written for the Midwest Illinois Livers and Friends server, re-written in Python and planning to host on a Raspberry Pi 5. May move to an arch linux box in the future. Will run Docker. I have goals of writing this in a very enterprise Python app way. I also plan on somehow microservicing a Discord bot, I'm sure it's possible. Or I might not. Is the speed of a quick command like %help worth sacrificing to make it reusable across every bot? Or maybe I make simple commands like that, a library instead. Who knows!
+A Discord bot for the Midwest Illinois Livers and Friends server, migrated from the original .NET
+application to Python. It is organized as a feature-oriented modular monolith: clear domain
+boundaries and testable services, without unnecessary distributed-system overhead.
+
+See [the architecture guide](docs/architecture.md) for package ownership and dependency rules, and
+[the migration status](docs/migration-status.md) for the remaining .NET parity work.
 
 ## Setup
 
@@ -30,7 +35,7 @@ This project requires Python 3.11 or newer.
    pip install -e .[dev]
    ```
 
-5. Create a `.env` file in the project root with the bot configuration:
+5. Copy `.env.example` to `.env` and fill in the bot configuration:
 
    ```env
    discord_token=your_discord_bot_token
@@ -40,9 +45,52 @@ This project requires Python 3.11 or newer.
    lead_dev_user_id=0
    toes_url=
    yoshimaru_url=
+   mongo_connection_string=mongodb://localhost:27017
+   mongo_database_name=BeanBotPythonDB
+   mongo_role_menu_collection=roleMenus
    ```
 
 Only `discord_token` is required; the other values fall back to defaults or may be left empty where applicable.
+
+The Python bot stores self-role menus in `BeanBotPythonDB` by default, leaving the C# bot's legacy
+`BeanBotDB` untouched. An administrator can run `%rolesetting` and choose up to 20 self-assignable
+roles at once with Discord's role picker. The bot needs the Manage Roles and Embed Links
+permissions, and its highest role must be above every role it assigns. Published role menus are
+persistent across bot restarts.
+
+### Migrate legacy reaction roles
+
+The C# bot stores reaction roles in `BeanBotDB.roleSettings`. The migration command copies those
+documents into `BeanBotPythonDB.roleMenus` and never writes to or deletes from the legacy database.
+Migrated reaction messages keep working while newly created menus use Discord's multi-role picker.
+
+Preview and validate the migration first:
+
+```powershell
+python -m beanbot.migrations.migrate_role_settings
+```
+
+If the MongoDB URI still lives in the deprecated bot's dotenv file, pass it without copying or
+printing the credential:
+
+```powershell
+python -m beanbot.migrations.migrate_role_settings --env-file ../BeanBot-DEPRACATED/.env
+```
+
+Apply the copy only after the dry run reports no invalid documents or conflicts:
+
+```powershell
+python -m beanbot.migrations.migrate_role_settings --apply
+```
+
+Apply requires a transaction-capable MongoDB replica set or mongos. A standalone deployment is
+reported as unsupported and receives no inserts. Eligible documents are committed in one
+transaction, so a late duplicate or write failure cannot leave that run partially inserted.
+
+The migration is idempotent: rerunning it skips documents already copied from the same source
+database, source collection, and legacy ID.
+See [docs/role-menus.md](docs/role-menus.md) for the schema, architecture, verification, and
+rollback procedure.
 
 ## Run
 

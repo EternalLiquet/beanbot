@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 import aiohttp
-
-log = logging.getLogger(__name__)
 
 BASE_URL = "https://meme-api.com"
 
@@ -28,7 +25,6 @@ class Meme:
 
 
 def _parse_meme(payload: dict[str, Any]) -> Meme:
-    # Meme API returns fields like postLink, subreddit, title, url, nsfw, spoiler, author, ups. :contentReference[oaicite:4]{index=4}
     try:
         return Meme(
             post_link=str(payload["postLink"]),
@@ -48,11 +44,8 @@ class MemeApiClient:
     def __init__(self, session: aiohttp.ClientSession) -> None:
         self._session = session
 
-    async def get_meme(self, subreddit: Optional[str] = None) -> Meme:
-        if subreddit:
-            url = f"{BASE_URL}/gimme/{subreddit}"
-        else:
-            url = f"{BASE_URL}/gimme"
+    async def get_meme(self, subreddit: str | None = None) -> Meme:
+        url = f"{BASE_URL}/gimme/{subreddit}" if subreddit else f"{BASE_URL}/gimme"
 
         try:
             async with self._session.get(url) as resp:
