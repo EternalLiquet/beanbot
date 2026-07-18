@@ -14,6 +14,31 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+SELF_ROLE_CUSTOM_ID_PREFIX = "beanbot:self-role-menu:"
+
+
+def self_role_custom_id(message_id: int) -> str:
+    return f"{SELF_ROLE_CUSTOM_ID_PREFIX}{message_id}"
+
+
+def message_has_current_role_select(message: discord.Message, menu: RoleMenu) -> bool:
+    expected_options = tuple((role.role_name[:100], str(role.role_id)) for role in menu.roles)
+    expected_custom_id = self_role_custom_id(menu.message_id)
+
+    for row in message.components:
+        for component in getattr(row, "children", ()):
+            if getattr(component, "custom_id", None) != expected_custom_id:
+                continue
+            actual_options = tuple(
+                (option.label, option.value) for option in getattr(component, "options", ())
+            )
+            return (
+                actual_options == expected_options
+                and getattr(component, "min_values", None) == 1
+                and getattr(component, "max_values", None) == len(expected_options)
+            )
+    return False
+
 
 class SelfRoleSelect(discord.ui.Select["SelfRoleMenuView"]):  # noqa: UP037
     def __init__(self, menu: RoleMenu) -> None:
@@ -26,7 +51,7 @@ class SelfRoleSelect(discord.ui.Select["SelfRoleMenuView"]):  # noqa: UP037
             for role in menu.roles
         ]
         super().__init__(
-            custom_id=f"beanbot:self-role-menu:{menu.message_id}",
+            custom_id=self_role_custom_id(menu.message_id),
             placeholder="Choose one or more roles to toggle",
             min_values=1,
             max_values=len(options),

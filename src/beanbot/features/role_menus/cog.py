@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import logging
 from collections.abc import Sequence
 
@@ -12,7 +11,11 @@ from beanbot.discord.bot import BeanBot
 from beanbot.features.role_menus.models import RoleMenu, StoredRole
 from beanbot.features.role_menus.repository import RoleMenuRepository
 from beanbot.features.role_menus.service import LegacyReactionRoleService
-from beanbot.features.role_menus.views import RoleMenuBuilderView, SelfRoleMenuView
+from beanbot.features.role_menus.views import (
+    RoleMenuBuilderView,
+    SelfRoleMenuView,
+    message_has_current_role_select,
+)
 
 log = logging.getLogger(__name__)
 
@@ -48,13 +51,80 @@ class RoleMenusCog(commands.Cog, name="Administrative Commands"):
             return
         await self.repository.initialize()
         menus = await self.repository.get_select_menus()
+        restored = 0
         for menu in menus:
-            if menu.roles:
-                self.bot.add_view(
-                    SelfRoleMenuView(self.repository, menu),
-                    message_id=menu.message_id,
+            if not menu.roles:
+                log.error(
+                    "Cannot restore self-role menu with no roles: guild=%s channel=%s message=%s",
+                    menu.guild_id,
+                    menu.channel_id,
+                    menu.message_id,
                 )
-        log.info("Restored %s persistent self-role menus", len(menus))
+                continue
+            if await self._reconcile_select_menu(menu):
+                restored += 1
+        log.info("Restored %s/%s persistent self-role menus", restored, len(menus))
+
+    async def _reconcile_select_menu(self, menu: RoleMenu) -> bool:
+        repository = self.repository
+        if repository is None:
+            return False
+
+        channel = self.bot.get_channel(menu.channel_id)
+        if channel is None:
+            try:
+                channel = await self.bot.fetch_channel(menu.channel_id)
+            except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+                log.exception(
+                    "Cannot access stored self-role menu channel: guild=%s channel=%s message=%s",
+                    menu.guild_id,
+                    menu.channel_id,
+                    menu.message_id,
+                )
+                return False
+
+        fetch_message = getattr(channel, "fetch_message", None)
+        if fetch_message is None:
+            log.error(
+                "Stored self-role menu channel cannot fetch messages: guild=%s channel=%s message=%s",
+                menu.guild_id,
+                menu.channel_id,
+                menu.message_id,
+            )
+            return False
+
+        try:
+            message = await fetch_message(menu.message_id)
+        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+            log.exception(
+                "Cannot access stored self-role menu message: guild=%s channel=%s message=%s",
+                menu.guild_id,
+                menu.channel_id,
+                menu.message_id,
+            )
+            return False
+
+        view = SelfRoleMenuView(repository, menu)
+        if not message_has_current_role_select(message, menu):
+            try:
+                await message.edit(view=view)
+            except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+                log.exception(
+                    "Cannot repair stored self-role menu: guild=%s channel=%s message=%s",
+                    menu.guild_id,
+                    menu.channel_id,
+                    menu.message_id,
+                )
+                return False
+            log.info(
+                "Repaired stored self-role menu component: guild=%s channel=%s message=%s",
+                menu.guild_id,
+                menu.channel_id,
+                menu.message_id,
+            )
+
+        self.bot.add_view(view, message_id=menu.message_id)
+        return True
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
@@ -163,18 +233,58 @@ class RoleMenusCog(commands.Cog, name="Administrative Commands"):
             ),
         )
 
+        return await self._persist_role_menu(
+            repository,
+            interaction,
+            role_message,
+            menu,
+            guild.id,
+        )
+
+    async def _persist_role_menu(
+        self,
+        repository: RoleMenuRepository,
+        interaction: discord.Interaction,
+        role_message: discord.Message,
+        menu: RoleMenu,
+        guild_id: int,
+    ) -> bool:
         try:
             await repository.save(menu)
             await role_message.edit(view=SelfRoleMenuView(repository, menu))
         except (discord.HTTPException, PyMongoError):
-            log.exception("Could not create self-role menu in guild %s", guild.id)
-            await repository.delete(role_message.id)
-            with contextlib.suppress(discord.HTTPException):
-                await role_message.delete()
-            await interaction.followup.send(
-                "I could not create that self-role menu.",
-                ephemeral=True,
+            log.exception(
+                "Could not create self-role menu: guild=%s message=%s",
+                guild_id,
+                role_message.id,
             )
+            try:
+                await repository.delete(role_message.id)
+            except PyMongoError:
+                log.exception(
+                    "Could not remove failed self-role menu record: guild=%s message=%s",
+                    guild_id,
+                    role_message.id,
+                )
+            try:
+                await role_message.delete()
+            except discord.HTTPException:
+                log.exception(
+                    "Could not remove failed self-role menu message: guild=%s message=%s",
+                    guild_id,
+                    role_message.id,
+                )
+            try:
+                await interaction.followup.send(
+                    "I could not create that self-role menu.",
+                    ephemeral=True,
+                )
+            except discord.HTTPException:
+                log.exception(
+                    "Could not report failed self-role menu creation: guild=%s message=%s",
+                    guild_id,
+                    role_message.id,
+                )
             return False
 
         return True

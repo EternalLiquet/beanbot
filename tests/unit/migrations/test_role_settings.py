@@ -49,6 +49,20 @@ def test_transform_legacy_role_setting_accepts_emoji_key() -> None:
     assert transformed["roles"][0]["emoji_key"] == "name:🔥"
 
 
+def test_transform_legacy_role_setting_uses_emoji_key_when_emoji_id_is_null() -> None:
+    transformed = transform_legacy_role_setting(
+        {
+            "_id": "legacy-id",
+            "guildId": "100",
+            "channelId": "200",
+            "messageId": "300",
+            "roleEmotePair": [{"roleId": "400", "emojiId": None, "emojiKey": "\N{FIRE}"}],
+        }
+    )
+
+    assert transformed["roles"][0]["emoji_key"] == "name:\N{FIRE}"
+
+
 def test_transform_legacy_role_setting_rejects_empty_pairs() -> None:
     with pytest.raises(ValueError, match="non-empty"):
         transform_legacy_role_setting(

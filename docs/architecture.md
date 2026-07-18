@@ -32,8 +32,8 @@ Tests mirror these boundaries under `tests/unit/`. A future integration suite ca
 - A feature owns its commands, models, services, persistence adapter, and UI components. Features
   should not reach into another feature's internals.
 - MongoDB access stays behind feature repositories. Commands and views do not issue raw queries.
-- Schema-changing work is implemented as a separate migration. Runtime startup never silently
-  rewrites production data.
+- Document schema changes are implemented as separate migrations. Runtime startup never silently
+  rewrites production documents.
 - `resources` contains immutable packaged data only.
 
 ## Design guidance

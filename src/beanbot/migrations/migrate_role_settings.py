@@ -9,10 +9,13 @@ from datetime import UTC, datetime
 from typing import Any
 
 from dotenv import load_dotenv
-from pymongo import ASCENDING, AsyncMongoClient
-from pymongo.errors import DuplicateKeyError
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.errors import ConfigurationError, DuplicateKeyError, OperationFailure, PyMongoError
 
 from beanbot.features.role_menus.models import normalize_emoji_key
+from beanbot.features.role_menus.repository import ensure_role_menu_indexes
 
 LEGACY_DATABASE = "BeanBotDB"
 LEGACY_COLLECTION = "roleSettings"
@@ -29,6 +32,9 @@ class MigrationSummary:
     already_migrated: int = 0
     conflicts: int = 0
     invalid: int = 0
+    write_failures: int = 0
+    transactions_unavailable: bool = False
+    failure_reason: str | None = None
 
 
 def transform_legacy_role_setting(document: Mapping[str, Any]) -> dict[str, Any]:
@@ -45,7 +51,9 @@ def transform_legacy_role_setting(document: Mapping[str, Any]) -> dict[str, Any]
         if not isinstance(pair, Mapping):
             raise ValueError("roleEmotePair entries must be documents")
         role_id = int(pair["roleId"])
-        emoji_value = pair.get("emojiId", pair.get("emojiKey"))
+        emoji_value = pair.get("emojiId")
+        if emoji_value is None:
+            emoji_value = pair.get("emojiKey")
         if emoji_value is None:
             raise ValueError("Each role mapping must contain emojiId or emojiKey")
         roles.append(
@@ -79,6 +87,40 @@ def transform_legacy_role_setting(document: Mapping[str, Any]) -> dict[str, Any]
             "migrated_at": now,
         },
     }
+
+
+def _migration_identity(
+    source_database: str,
+    source_collection: str,
+    legacy_id: str,
+) -> dict[str, str]:
+    return {
+        "migration.source_database": source_database,
+        "migration.source_collection": source_collection,
+        "migration.legacy_id": legacy_id,
+    }
+
+
+def _transactions_are_unavailable(error: PyMongoError) -> bool:
+    if isinstance(error, ConfigurationError):
+        return True
+    if not isinstance(error, OperationFailure):
+        return False
+    return error.code in {20, 263, 303} or "Transaction numbers are only allowed" in str(error)
+
+
+async def _insert_candidates_atomically(
+    client: AsyncMongoClient[dict[str, Any]],
+    target: AsyncCollection[dict[str, Any]],
+    candidates: Sequence[dict[str, Any]],
+) -> None:
+    async with client.start_session() as session:
+
+        async def insert_all(active_session: AsyncClientSession) -> None:
+            for transformed in candidates:
+                await target.insert_one(transformed, session=active_session)
+
+        await session.with_transaction(insert_all)
 
 
 async def migrate(
@@ -115,7 +157,7 @@ async def migrate(
             summary.valid += 1
             legacy_id = transformed["migration"]["legacy_id"]
             existing = await target.find_one(
-                {"migration.legacy_id": legacy_id},
+                _migration_identity(source_database, source_collection, legacy_id),
                 {"_id": 1},
             )
             if existing is not None:
@@ -133,25 +175,21 @@ async def migrate(
             summary.eligible += 1
             candidates.append(transformed)
 
-        if apply and not summary.invalid and not summary.conflicts:
-            await target.create_index(
-                [("message_id", ASCENDING)],
-                name="role_menu_message_id",
-                unique=True,
-            )
-            await target.create_index(
-                [("migration.legacy_id", ASCENDING)],
-                name="role_menu_legacy_id",
-                unique=True,
-                sparse=True,
-            )
-            for transformed in candidates:
-                try:
-                    await target.insert_one(transformed)
-                except DuplicateKeyError:
-                    summary.conflicts += 1
-                    continue
-                summary.inserted += 1
+        if apply and candidates and not summary.invalid and not summary.conflicts:
+            await ensure_role_menu_indexes(target)
+            try:
+                await _insert_candidates_atomically(client, target, candidates)
+            except DuplicateKeyError as error:
+                summary.conflicts += 1
+                summary.failure_reason = str(error)
+            except PyMongoError as error:
+                summary.failure_reason = str(error)
+                if _transactions_are_unavailable(error):
+                    summary.transactions_unavailable = True
+                else:
+                    summary.write_failures += 1
+            else:
+                summary.inserted = len(candidates)
     finally:
         await client.close()
 
@@ -215,7 +253,19 @@ async def _run(arguments: argparse.Namespace) -> int:
     print(f"  already migrated: {summary.already_migrated}")
     print(f"  conflicts:        {summary.conflicts}")
     print(f"  invalid:          {summary.invalid}")
-    return 1 if summary.conflicts or summary.invalid else 0
+    print(f"  write failures:   {summary.write_failures}")
+    if summary.transactions_unavailable:
+        print("  transactions:     unavailable (apply requires a replica set or mongos)")
+    if summary.failure_reason:
+        print(f"  failure:          {summary.failure_reason}")
+    return (
+        1
+        if summary.conflicts
+        or summary.invalid
+        or summary.write_failures
+        or summary.transactions_unavailable
+        else 0
+    )
 
 
 def main() -> None:

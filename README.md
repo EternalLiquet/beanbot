@@ -83,7 +83,12 @@ Apply the copy only after the dry run reports no invalid documents or conflicts:
 python -m beanbot.migrations.migrate_role_settings --apply
 ```
 
-The migration is idempotent: rerunning it skips documents already copied from the same legacy ID.
+Apply requires a transaction-capable MongoDB replica set or mongos. A standalone deployment is
+reported as unsupported and receives no inserts. Eligible documents are committed in one
+transaction, so a late duplicate or write failure cannot leave that run partially inserted.
+
+The migration is idempotent: rerunning it skips documents already copied from the same source
+database, source collection, and legacy ID.
 See [docs/role-menus.md](docs/role-menus.md) for the schema, architecture, verification, and
 rollback procedure.
 
