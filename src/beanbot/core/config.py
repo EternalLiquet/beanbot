@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     prefix: str = "%"
     log_level: str = "INFO"
     lead_dev_user_id: int = 0
+    general_channel_id: int = Field(
+        default=0,
+        validation_alias=AliasChoices(
+            "general_channel_id",
+            "BEANBOT_GENERAL_CHANNEL_ID",
+            "generalChannelId",
+        ),
+    )
     toes_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices("toes_url", "BEANBOT_HATOETE_URL", "hatoeteUrl"),

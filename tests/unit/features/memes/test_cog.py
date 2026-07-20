@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime as dt
 from types import SimpleNamespace
 from typing import Any
 
@@ -15,6 +16,34 @@ class FakeContext:
 
     async def reply(self, *args: Any, **kwargs: Any) -> None:
         self.replies.append((args, kwargs))
+
+
+class FakePunRepository:
+    def get_random_pun(self) -> str:
+        return "a migrated pun"
+
+
+class FakeTextChannel:
+    def __init__(self) -> None:
+        self.messages: list[str] = []
+
+    async def send(self, content: str, **kwargs: Any) -> None:
+        self.messages.append(content)
+
+
+class FakeBot:
+    def __init__(self, channel: FakeTextChannel | None = None) -> None:
+        self.http_session = object()
+        self.channel = channel
+        self.fetch_count = 0
+
+    def get_channel(self, channel_id: int) -> FakeTextChannel | None:
+        return self.channel
+
+    async def fetch_channel(self, channel_id: int) -> FakeTextChannel:
+        self.fetch_count += 1
+        assert self.channel is not None
+        return self.channel
 
 
 def test_meme_command_fetches_and_replies_with_embed(monkeypatch: Any) -> None:
@@ -55,3 +84,56 @@ def test_uwu_command_does_not_run_meme_fetch_logic(monkeypatch: Any) -> None:
 
     assert context.replies[0][0] == ("uwu:beans",)
     assert len(context.replies) == 1
+
+
+def test_daily_pun_posts_legacy_message_sequence() -> None:
+    channel = FakeTextChannel()
+    cog = meme_cog.MemeCog(
+        FakeBot(channel),
+        config=meme_cog.MemeConfig(daily_pun_channel_id=123),
+        pun_repo=FakePunRepository(),
+    )
+
+    asyncio.run(cog._post_daily_pun())
+
+    assert channel.messages == [
+        meme_cog.DAILY_PUN_INTRO,
+        meme_cog.DAILY_PUN_EMOTE,
+        "a migrated pun",
+    ]
+
+
+def test_daily_pun_fetches_channel_when_not_cached() -> None:
+    channel = FakeTextChannel()
+    bot = FakeBot(channel)
+    bot.channel = None
+
+    async def fetch_channel(channel_id: int) -> FakeTextChannel:
+        bot.fetch_count += 1
+        return channel
+
+    bot.fetch_channel = fetch_channel
+    cog = meme_cog.MemeCog(
+        bot,
+        config=meme_cog.MemeConfig(daily_pun_channel_id=123),
+        pun_repo=FakePunRepository(),
+    )
+
+    asyncio.run(cog._post_daily_pun())
+
+    assert bot.fetch_count == 1
+    assert channel.messages[-1] == "a migrated pun"
+
+
+def test_daily_pun_schedule_uses_chicago_420_pm_with_dst() -> None:
+    schedule_time = meme_cog.DAILY_PUN_POST_TIME
+
+    assert schedule_time.hour == 16
+    assert schedule_time.minute == 20
+    assert schedule_time.tzinfo is meme_cog.DAILY_PUN_TIMEZONE
+
+    winter = dt.datetime(2026, 1, 1, 16, 20, tzinfo=schedule_time.tzinfo)
+    summer = dt.datetime(2026, 7, 1, 16, 20, tzinfo=schedule_time.tzinfo)
+
+    assert winter.utcoffset() == dt.timedelta(hours=-6)
+    assert summer.utcoffset() == dt.timedelta(hours=-5)
