@@ -16,7 +16,7 @@ The Python migration is complete when every legacy behavior is either **Complete
 | Legacy environment variable compatibility | Complete | `core/config.py` |
 | 8-ball behavior | Partial | Basic question/response flow exists; richer validation, response overrides, queue responses, and PunMaster behavior remain |
 | Command prefixes and legacy aliases | Partial | `%` and mention prefixes work; legacy `succ ` prefix and some aliases need a product decision or implementation |
-| Automatic daily pun | Remaining | Port the scheduled America/Chicago post and configured destination channel |
+| Automatic daily pun | Complete | `features/memes/cog.py` posts at 16:20 America/Chicago to `general_channel_id` |
 | New-member direct message | Remaining | Port the non-bot member welcome/instruction handler |
 | Edited 8-ball request handling | Remaining | Track the response and replace it when the original request is edited |
 | Connection health endpoint | Remaining | Port or replace authenticated `/healthz`, readiness state, and rate limiting |
@@ -27,9 +27,8 @@ The Python migration is complete when every legacy behavior is either **Complete
 
 1. Finish 8-ball parity and decide which legacy aliases are still supported.
 2. Add member-join and message-edit event features.
-3. Add the daily-pun scheduler with timezone-aware tests.
-4. Define the deployment health contract, then implement the smallest endpoint that satisfies it.
-5. Run a Discord staging-server parity checklist and mark the remaining rows complete or retired.
+3. Define the deployment health contract, then implement the smallest endpoint that satisfies it.
+4. Run a Discord staging-server parity checklist and mark the remaining rows complete or retired.
 
 The role-menu migration does not mutate `BeanBotDB.roleSettings`. It copies valid documents into
 the separately configured Python database and collection. See [role-menus.md](role-menus.md) for

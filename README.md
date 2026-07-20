@@ -43,6 +43,7 @@ This project requires Python 3.11 or newer.
    prefix=%
    log_level=INFO
    lead_dev_user_id=0
+   general_channel_id=0
    toes_url=
    yoshimaru_url=
    mongo_connection_string=mongodb://localhost:27017
@@ -51,6 +52,7 @@ This project requires Python 3.11 or newer.
    ```
 
 Only `discord_token` is required; the other values fall back to defaults or may be left empty where applicable.
+Set `general_channel_id` to enable the daily 4:20 PM America/Chicago pun post in that channel.
 
 The Python bot stores self-role menus in `BeanBotPythonDB` by default, leaving the C# bot's legacy
 `BeanBotDB` untouched. An administrator can run `%rolesetting` and choose up to 20 self-assignable

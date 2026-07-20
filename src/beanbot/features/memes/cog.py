@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 import io
 import logging
 import random
@@ -8,16 +9,74 @@ from contextlib import suppress
 from dataclasses import dataclass
 from importlib import resources
 from typing import Final
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import aiohttp
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from beanbot.discord.bot import BeanBot
 from beanbot.features.memes.api import MemeApiClient, MemeApiError
 from beanbot.features.memes.puns import PunRepository
 
 log = logging.getLogger(__name__)
+
+
+class _FallbackChicagoTimeZone(dt.tzinfo):
+    _STANDARD_OFFSET: Final[dt.timedelta] = dt.timedelta(hours=-6)
+    _DST_OFFSET: Final[dt.timedelta] = dt.timedelta(hours=-5)
+    _DST_DELTA: Final[dt.timedelta] = dt.timedelta(hours=1)
+
+    def utcoffset(self, value: dt.datetime | None) -> dt.timedelta | None:
+        if value is None:
+            return None
+        return self._DST_OFFSET if self._is_dst(value.replace(tzinfo=None)) else self._STANDARD_OFFSET
+
+    def dst(self, value: dt.datetime | None) -> dt.timedelta | None:
+        if value is None:
+            return None
+        return self._DST_DELTA if self._is_dst(value.replace(tzinfo=None)) else dt.timedelta(0)
+
+    def tzname(self, value: dt.datetime | None) -> str:
+        if value is not None and self._is_dst(value.replace(tzinfo=None)):
+            return "CDT"
+        return "CST"
+
+    def fromutc(self, value: dt.datetime) -> dt.datetime:
+        if value.tzinfo is not self:
+            raise ValueError("fromutc: dt.tzinfo is not self")
+        standard_time = value.replace(tzinfo=None) + self._STANDARD_OFFSET
+        if self._is_dst(standard_time):
+            standard_time += self._DST_DELTA
+        return standard_time.replace(tzinfo=self)
+
+    @classmethod
+    def _is_dst(cls, value: dt.datetime) -> bool:
+        start = cls._nth_weekday(value.year, 3, 6, 2).replace(hour=2)
+        end = cls._nth_weekday(value.year, 11, 6, 1).replace(hour=2)
+        return start <= value < end
+
+    @staticmethod
+    def _nth_weekday(year: int, month: int, weekday: int, occurrence: int) -> dt.datetime:
+        first = dt.datetime(year, month, 1)
+        days_until_weekday = (weekday - first.weekday()) % 7
+        day = 1 + days_until_weekday + (occurrence - 1) * 7
+        return dt.datetime(year, month, day)
+
+
+def _load_chicago_timezone() -> dt.tzinfo:
+    try:
+        return ZoneInfo("America/Chicago")
+    except ZoneInfoNotFoundError:
+        return _FallbackChicagoTimeZone()
+
+
+DAILY_PUN_TIMEZONE: Final[dt.tzinfo] = _load_chicago_timezone()
+DAILY_PUN_POST_TIME: Final[dt.time] = dt.time(hour=16, minute=20, tzinfo=DAILY_PUN_TIMEZONE)
+DAILY_PUN_INTRO: Final[str] = (
+    "The time has come and so have I, Bean Bot here to deliver you your daily pun(?)"
+)
+DAILY_PUN_EMOTE: Final[str] = "<:420stolfoit:675553715759087618>"
 
 
 def _is_question(text: str) -> bool:
@@ -60,6 +119,7 @@ def _uwuify(text: str) -> str:
 class MemeConfig:
     toes_url: str | None = None
     yoshimaru_url: str | None = None
+    daily_pun_channel_id: int = 0
 
 
 class MemeCog(commands.Cog, name="Meme Commands"):
@@ -91,6 +151,56 @@ class MemeCog(commands.Cog, name="Meme Commands"):
         self.bot = bot
         self.config = config or MemeConfig()
         self.pun_repo = pun_repo or PunRepository()
+
+    async def cog_load(self) -> None:
+        if not self.config.daily_pun_channel_id:
+            log.info("Daily pun scheduler disabled; no destination channel configured")
+            return
+
+        if not self.daily_pun_scheduler.is_running():
+            self.daily_pun_scheduler.start()
+            log.info(
+                "Daily pun scheduler enabled for channel=%s at %s America/Chicago",
+                self.config.daily_pun_channel_id,
+                DAILY_PUN_POST_TIME.strftime("%H:%M"),
+            )
+
+    async def cog_unload(self) -> None:
+        self.daily_pun_scheduler.cancel()
+
+    @tasks.loop(time=DAILY_PUN_POST_TIME)
+    async def daily_pun_scheduler(self) -> None:
+        await self._post_daily_pun()
+
+    @daily_pun_scheduler.before_loop
+    async def before_daily_pun_scheduler(self) -> None:
+        await self.bot.wait_until_ready()
+
+    async def _post_daily_pun(self) -> None:
+        channel_id = self.config.daily_pun_channel_id
+        if not channel_id:
+            return
+
+        channel = self.bot.get_channel(channel_id)
+        if channel is None:
+            try:
+                channel = await self.bot.fetch_channel(channel_id)
+            except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+                log.exception("Could not fetch daily pun channel: channel=%s", channel_id)
+                return
+
+        send = getattr(channel, "send", None)
+        if send is None:
+            log.error("Configured daily pun channel is not messageable: channel=%s", channel_id)
+            return
+
+        log.info("Posting daily pun to channel=%s", channel_id)
+        try:
+            await send(DAILY_PUN_INTRO, allowed_mentions=_safe_allowed_mentions())
+            await send(DAILY_PUN_EMOTE, allowed_mentions=_safe_allowed_mentions())
+            await send(self.pun_repo.get_random_pun(), allowed_mentions=_safe_allowed_mentions())
+        except discord.HTTPException:
+            log.exception("Could not post daily pun: channel=%s", channel_id)
 
     @commands.hybrid_command(
         name="succ",
@@ -319,5 +429,6 @@ async def setup(bot: BeanBot) -> None:
     config = MemeConfig(
         toes_url=bot.settings.toes_url,
         yoshimaru_url=bot.settings.yoshimaru_url,
+        daily_pun_channel_id=bot.settings.general_channel_id,
     )
     await bot.add_cog(MemeCog(bot, config=config, pun_repo=PunRepository()))
