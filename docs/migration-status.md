@@ -16,7 +16,7 @@ The Python migration is complete when every legacy behavior is either **Complete
 | Legacy environment variable compatibility | Complete | `core/config.py` |
 | 8-ball behavior | Partial | Basic question/response flow exists; richer validation, response overrides, queue responses, and PunMaster behavior remain |
 | Command prefixes and legacy aliases | Partial | `%` and mention prefixes work; legacy `succ ` prefix and some aliases need a product decision or implementation |
-| Automatic daily pun | Complete | `features/memes/cog.py` posts at 16:20 America/Chicago to `general_channel_id` |
+| Automatic daily pun | Complete | `features/memes/cog.py` posts at 16:20 America/Chicago to `general_channel_id`; covered by `tests/unit/features/memes/test_cog.py` |
 | New-member direct message | Remaining | Port the non-bot member welcome/instruction handler |
 | Edited 8-ball request handling | Remaining | Track the response and replace it when the original request is edited |
 | Connection health endpoint | Remaining | Port or replace authenticated `/healthz`, readiness state, and rate limiting |
@@ -33,3 +33,6 @@ The Python migration is complete when every legacy behavior is either **Complete
 The role-menu migration does not mutate `BeanBotDB.roleSettings`. It copies valid documents into
 the separately configured Python database and collection. See [role-menus.md](role-menus.md) for
 the operational procedure.
+
+Runtime settings continue to accept the old C# environment names where parity features depend on
+them, including `BEANBOT_GENERAL_CHANNEL_ID` for the daily pun destination.

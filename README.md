@@ -53,6 +53,18 @@ This project requires Python 3.11 or newer.
 
 Only `discord_token` is required; the other values fall back to defaults or may be left empty where applicable.
 Set `general_channel_id` to enable the daily 4:20 PM America/Chicago pun post in that channel.
+The scheduler sends the same legacy sequence: intro line, 420 emote, then one random pun from
+`resources/puns.csv`.
+
+The Python settings also accept the legacy C# deployment names:
+
+| Python setting | Legacy environment name |
+| --- | --- |
+| `discord_token` | `BEANBOT_BOT_TOKEN` |
+| `general_channel_id` | `BEANBOT_GENERAL_CHANNEL_ID` |
+| `toes_url` | `BEANBOT_HATOETE_URL` |
+| `yoshimaru_url` | `BEANBOT_YOSHIMARU_URL` |
+| `mongo_connection_string` | `BEANBOT_MONGO_CONNECTION_STRING` |
 
 The Python bot stores self-role menus in `BeanBotPythonDB` by default, leaving the C# bot's legacy
 `BeanBotDB` untouched. An administrator can run `%rolesetting` and choose up to 20 self-assignable

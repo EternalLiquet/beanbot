@@ -7,18 +7,18 @@ boundaries without adding deployment or network complexity that the project does
 
 ```text
 src/beanbot/
-├── app.py                 # process composition root
-├── core/                  # settings and cross-cutting infrastructure
-├── discord/               # bot lifecycle and Discord client adapter
-├── features/
-│   ├── registry.py        # enabled extension inventory
-│   ├── help/              # one vertical slice per bot capability
-│   ├── info/
-│   ├── memes/
-│   ├── ping/
-│   └── role_menus/
-├── migrations/            # explicit, operator-run data migrations
-└── resources/             # packaged static assets
++-- app.py                 # process composition root
++-- core/                  # settings and cross-cutting infrastructure
++-- discord/               # bot lifecycle and Discord client adapter
++-- features/
+|   +-- registry.py        # enabled extension inventory
+|   +-- help/              # one vertical slice per bot capability
+|   +-- info/
+|   +-- memes/
+|   +-- ping/
+|   +-- role_menus/
++-- migrations/            # explicit, operator-run data migrations
++-- resources/             # packaged static assets
 ```
 
 Tests mirror these boundaries under `tests/unit/`. A future integration suite can live under
@@ -40,7 +40,7 @@ Tests mirror these boundaries under `tests/unit/`. A future integration suite ca
 
 Prefer adding behavior to an existing feature slice. Create a new feature when it represents a
 separate capability with its own Discord events, commands, or persistence. Split a feature further
-when a module gains a second reason to change—for example, the role-menu slice separates Discord
+when a module gains a second reason to change. For example, the role-menu slice separates Discord
 views, persistence, document models, and role-assignment behavior.
 
 This structure intentionally avoids a generic `services/` or `cogs/` dumping ground. It also avoids
